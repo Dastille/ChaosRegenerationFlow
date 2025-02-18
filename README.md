@@ -18,4 +18,5 @@ ChaosRegenFlow (CRF) is a GPU-accelerated, fully automated file transfer system 
 This is an experiment/test. I do not expect the code to work.
 
 #### `LICENSE` (AGPL v3)
-You can download the full AGPL v3 text from [GNU](https://www.gnu.org/licenses/agpl-3.0.txt), but here’s a truncated version for inclusion (replace with the full text in your repo):
+You can download the full AGPL v3 text from [GNU](https://www.gnu.org/licenses/agpl-3.0.txt)
+See license file
