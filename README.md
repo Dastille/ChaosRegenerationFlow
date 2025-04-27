@@ -14,6 +14,8 @@ Now includes:
 
 ChaosRegen is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
 
+Yep.
+
 ## Usage
 
 ```bash
@@ -28,5 +30,5 @@ cargo build --release
 
 ## Maintainer
 
-Maintained by **Ashlynn**  
+Maintained by **Ashlynn**
 Contact: dastille@protonmail.com
