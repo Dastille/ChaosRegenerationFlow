@@ -112,4 +112,4 @@ By moving away from redundancy-exploitation into pure entropy engineering, Chaos
 
 ## License
 
-ChaosRegen is released under the MIT License.
+ChaosRegen is released under the GNU AFFERO GENERAL PUBLIC LICENSE.
