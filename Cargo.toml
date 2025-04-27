@@ -1,11 +1,9 @@
-
 [package]
 name = "chaosregen"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your@email.com>"]
+authors = ["Ashlynn <dastille@protonmail.com>"]
 description = "ChaosRegen: Lossless entropy compression based on universal constants and modular math."
-license = "MIT"
-
+license = "AGPL-3.0"
 [dependencies]
 rand = "0.8"
