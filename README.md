@@ -1,18 +1,18 @@
 # ChaosRegen
 
-**Pure lossless universal compression for encrypted and chaotic data.**
+**Pure lossless universal compression for encrypted and chaotic data with full network-grade safety.**
 
 ChaosRegen mechanically extracts entropy from random data using 
-universal constants, modular mathematics, and reversible transforms, 
-achieving real compression without relying on redundancy detection.
+universal constants, modular mathematics, and reversible transforms.
 
-Built entirely in Rust.
+Now includes:
+- Magic file headers
+- Original file size tracking
+- CRC32 checksum verification
 
 ## License
 
 ChaosRegen is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
-
-See the LICENSE file for details.
 
 ## Usage
 
@@ -26,7 +26,7 @@ cargo build --release
 ./target/release/chaosregen decompress compressed_file output_file
 ```
 
-## Philosophy
+## Maintainer
 
-ChaosRegen is committed to ensuring that all users retain the right to study, modify, and share improvements,
-even when software is used over a network. This project upholds the spirit of free software in all deployments.
+Maintained by **Ashlynn**  
+Contact: dastille@protonmail.com

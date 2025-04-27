@@ -1,9 +1,11 @@
 [package]
 name = "chaosregen"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Ashlynn <dastille@protonmail.com>"]
-description = "ChaosRegen: Lossless entropy compression based on universal constants and modular math."
+description = "ChaosRegen: Lossless entropy compression with network-grade validation (magic header, CRC32)."
 license = "AGPL-3.0"
+
 [dependencies]
 rand = "0.8"
+crc32fast = "1.3"
