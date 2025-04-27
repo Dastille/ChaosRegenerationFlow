@@ -14,21 +14,19 @@ Now includes:
 
 ChaosRegen is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
 
-Yep.
-
 ## Usage
 
 ```bash
 cargo build --release
 
 # Compress a file
-./target/release/chaosregen compress input_file output_file
+./target/release/chaosregen compress <input_file> <output_file>
 
 # Decompress a file
-./target/release/chaosregen decompress compressed_file output_file
+./target/release/chaosregen decompress <compressed_file> <output_file>
 ```
 
 ## Maintainer
 
-Maintained by **Ashlynn**
+Maintained by **Ashlynn**  
 Contact: dastille@protonmail.com
