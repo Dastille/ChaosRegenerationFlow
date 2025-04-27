@@ -1,4 +1,3 @@
-
 mod ratchet;
 mod constants;
 
