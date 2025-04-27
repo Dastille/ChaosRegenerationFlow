@@ -1,18 +1,11 @@
+
 [package]
-name = "chaosregenflow"
-version = "1.0.0"
+name = "chaosregen"
+version = "0.1.0"
 edition = "2021"
-description = "ChaosRegenFlow (CRF) - Automated, GPU-Accelerated File Transfer with Chaotic Regeneration"
-license = "AGPL-3.0"
-repository = "https://github.com/yourusername/chaosregenflow"
+authors = ["Your Name <your@email.com>"]
+description = "ChaosRegen: Lossless entropy compression based on universal constants and modular math."
+license = "MIT"
 
 [dependencies]
-ssh2 = "0.9"
-zstd = "0.13"
-xxhash-rust = "0.8"
 rand = "0.8"
-cuda = "0.1"
-tokio = { version = "1.0", features = ["full"] }
-log = "0.4"
-env_logger = "0.11"
-clap = { version = "4.0", features = ["derive"] }
