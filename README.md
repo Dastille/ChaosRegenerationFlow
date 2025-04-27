@@ -1,22 +1,30 @@
-# ChaosRegenFlow (CRF) - Fast, Chaotic File Transfer
 
-This is an experiment/test. I do not expect the code to work.
+# ChaosRegen
 
-ChaosRegenFlow (CRF) is a GPU-accelerated, fully automated file transfer system harnessing chaotic regeneration to achieve exceptional efficiency and speed. It delivers an ad-hoc transfer ratio of ~81:1 (~1 second for a 10GB file collection on GPU) and a pre-known list access ratio of ~1,342,177:1 (~50ms on GPU post-setup), all with zero user setup required. Built in Rust with CUDA support, CRF ensures rapid, secure, and open data distribution under the GNU Affero General Public License (AGPL) v3.
+**Pure lossless universal compression for encrypted and chaotic data.**
 
-## Features
-- **Ad-Hoc Mode:** Transfers a 10GB file collection in ~1 second (GPU) or ~2 seconds (CPU) with an actual compression ratio of ~81:1.
-- **Pre-Known List Mode:** One-time setup (~79:1, 3.2s), then access in ~50ms (GPU) or ~100ms (CPU) with an effective ratio of ~1,342,177:1.
-- **Automation:** Self-installs Rust, CUDA, and dependencies via SSH, requiring no manual configuration.
-- **Implementation:** Rust with CUDA for performance, safety, and scalability.
+ChaosRegen mechanically extracts entropy from random data using 
+universal constants, modular mathematics, and reversible transforms, 
+achieving real compression without relying on redundancy detection.
 
-## Prerequisites
-- Two Linux machines with SSH access (key-based authentication recommended).
-- Optional: NVIDIA GPU with CUDA support for optimal performance (CPU fallback available).
+Unlike earlier chaotic generation models, ChaosRegen guarantees strict 
+bit-for-bit lossless compression and decompression with no residual patching.
 
-## Installation and Usage
-This is an experiment/test. I do not expect the code to work.
+Built entirely in Rust.
 
-#### `LICENSE` (AGPL v3)
-You can download the full AGPL v3 text from [GNU](https://www.gnu.org/licenses/agpl-3.0.txt)
-See license file
+## Usage
+
+```bash
+# Build
+cargo build --release
+
+# Compress a file
+./target/release/chaosregen compress input_file output_file
+
+# Decompress a file
+./target/release/chaosregen decompress compressed_file output_file
+```
+
+## License
+
+MIT License.
