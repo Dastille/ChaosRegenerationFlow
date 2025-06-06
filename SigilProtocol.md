@@ -47,10 +47,10 @@ Sigil's `.sg1` format includes self-verifying structures that make it suitable f
 
 ### How It Works
 
-1. **Magic Header (`CRGN`)**
+1. **Magic Header (`SGIL`)**
    - Identifies the file format
    - Prevents filetype spoofing or trick execution
-   - Retained from ChaosRegen for compatibility (may evolve to `SGIL`)
+   - Supersedes the old `CRGN` header used in early prototypes
 
 2. **Original File Length**  
    - Encoded in the header  
