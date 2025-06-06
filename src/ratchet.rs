@@ -10,7 +10,10 @@ const MAX_PASSES: usize = 3;
 const ENTROPY_THRESHOLD: f64 = 0.1; // bits per byte
 const PRIMES: [u16; 3] = [251, 241, 239];
 
-const MAGIC: &[u8; 4] = b"CRGN";
+/// Magic header used in `.sg1` files.
+///
+/// `SGIL` is short for "Sigil", superseding the previous `CRGN` header.
+const MAGIC: &[u8; 4] = b"SGIL";
 
 pub fn compress_data(input: &[u8]) -> Vec<u8> {
     let size = input.len();

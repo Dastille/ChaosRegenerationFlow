@@ -6,7 +6,7 @@ ChaosRegen mechanically extracts entropy from random data using
 universal constants, modular mathematics, and reversible transforms.
 
 Now includes:
-- Magic file headers
+- SGIL magic file headers
 - Original file size tracking
 - CRC32 checksum verification
 - Recursive microzone passes (up to three) with entropy sensing
