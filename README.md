@@ -9,6 +9,8 @@ Now includes:
 - Magic file headers
 - Original file size tracking
 - CRC32 checksum verification
+- Recursive microzone passes (up to three) with entropy sensing
+- Modular prime rotation across {251, 241, 239}
 
 Sigil extends ChaosRegen with a self-verifying `.sg1` format. See
 [SigilProtocol.md](SigilProtocol.md) for details on the protocol and how

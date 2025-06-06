@@ -36,11 +36,11 @@ The ChaosRegen engine follows a modular pipeline:
 - **Mask Generation:** Constants \( \pi \), \( \phi \), and logistic map sequences seeded into reproducible byte masks.
 - **Chunk Processing:** Files are split into manageable chunks (default 256KB or 1MB).
 - **Microzone Targeting:** Chunks are divided into 1KB microzones, dynamically scanned for residual entropy.
-- **Transform Stack:** Each microzone undergoes:
-  - XOR Ratcheting
-  - Modular Mapping
-  - Matrix Shuffling (conditionally)
-  - Recursive passes if entropy threshold not met
+  - **Transform Stack:** Each microzone undergoes:
+    - XOR Ratcheting
+    - Modular Mapping with rotating primes {251, 241, 239}
+    - Matrix Shuffling (conditionally)
+    - Recursive passes (up to three) while entropy continues to fall
 
 Metadata needed for decompression is minimal and embedded at the head of the compressed file.
 
@@ -51,7 +51,7 @@ Metadata needed for decompression is minimal and embedded at the head of the com
 ChaosRegen was tested against 1MB files composed entirely of encrypted-grade random data (8-bit full entropy). Compression involved:
 
 - 3-layer ratchet recursion per microzone
-- Modular mappings using primes \{251, 241, 239\} modulo 257
+- Modular mappings rotate primes \{251, 241, 239\} each pass
 - Matrix shuffle applied when zone size was even
 - Dynamic adaptive strategies based on local entropy decay
 
