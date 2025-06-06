@@ -1,11 +1,16 @@
 use crate::constants::{
     generate_mask, logistic_mask, LOGISTIC_R, LOGISTIC_SEED, PHI_SEED, PI_SEED,
 };
+#[cfg(feature = "gf")]
+use crate::gf::{gf_inv, gf_mul};
 use crc32fast::Hasher;
 use std::convert::TryInto;
 
 const CHUNK_SIZE: usize = 256 * 1024; // 256KB blocks
 const MICROZONE_SIZE: usize = 1024; // 1KB microzones
+#[cfg(feature = "gf")]
+const MAX_PASSES: usize = 1;
+#[cfg(not(feature = "gf"))]
 const MAX_PASSES: usize = 3;
 const ENTROPY_THRESHOLD: f64 = 0.1; // bits per byte
 const PRIMES: [u16; 3] = [251, 241, 239];
@@ -131,6 +136,9 @@ pub fn decompress_data(input: &[u8]) -> Vec<u8> {
 
     let mut output = compressed_data.to_vec();
 
+    #[cfg(feature = "gf")]
+    let primes_rev = [PRIMES[0]];
+    #[cfg(not(feature = "gf"))]
     let primes_rev = [PRIMES[2], PRIMES[1], PRIMES[0]];
 
     let mut offset = 0;
@@ -143,11 +151,18 @@ pub fn decompress_data(input: &[u8]) -> Vec<u8> {
             let logistic_slice = &logistic_mask[global..global + micro.len()];
 
             for &prime in &primes_rev {
-                let before = micro.to_vec();
-                inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
-                let diff = shannon_entropy(micro) - shannon_entropy(&before);
-                if diff < ENTROPY_THRESHOLD {
-                    micro.copy_from_slice(&before);
+                #[cfg(feature = "gf")]
+                {
+                    inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
+                }
+                #[cfg(not(feature = "gf"))]
+                {
+                    let before = micro.to_vec();
+                    inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
+                    let diff = shannon_entropy(micro) - shannon_entropy(&before);
+                    if diff < ENTROPY_THRESHOLD {
+                        micro.copy_from_slice(&before);
+                    }
                 }
             }
 
@@ -193,6 +208,9 @@ pub fn repair_data(input: &[u8]) -> (Vec<u8>, bool) {
 
     let mut output = padded;
 
+    #[cfg(feature = "gf")]
+    let primes_rev = [PRIMES[0]];
+    #[cfg(not(feature = "gf"))]
     let primes_rev = [PRIMES[2], PRIMES[1], PRIMES[0]];
 
     let mut offset = 0;
@@ -205,11 +223,18 @@ pub fn repair_data(input: &[u8]) -> (Vec<u8>, bool) {
             let logistic_slice = &logistic_mask[global..global + micro.len()];
 
             for &prime in &primes_rev {
-                let before = micro.to_vec();
-                inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
-                let diff = shannon_entropy(micro) - shannon_entropy(&before);
-                if diff < ENTROPY_THRESHOLD {
-                    micro.copy_from_slice(&before);
+                #[cfg(feature = "gf")]
+                {
+                    inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
+                }
+                #[cfg(not(feature = "gf"))]
+                {
+                    let before = micro.to_vec();
+                    inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
+                    let diff = shannon_entropy(micro) - shannon_entropy(&before);
+                    if diff < ENTROPY_THRESHOLD {
+                        micro.copy_from_slice(&before);
+                    }
                 }
             }
 
@@ -221,6 +246,7 @@ pub fn repair_data(input: &[u8]) -> (Vec<u8>, bool) {
     (output, crc_ok)
 }
 
+#[cfg(not(feature = "gf"))]
 fn modular_inverse_map(value: u8, prime: u16, modulo: u16) -> u8 {
     for candidate in 0..=255u16 {
         if (candidate * prime) % modulo == value as u16 {
@@ -246,6 +272,7 @@ fn shannon_entropy(data: &[u8]) -> f64 {
     entropy
 }
 
+#[cfg(not(feature = "gf"))]
 fn forward_pass(data: &mut [u8], pi: &[u8], phi: &[u8], logistic: &[u8], prime: u16) {
     for (b, &m) in data.iter_mut().zip(pi.iter()) {
         *b ^= m;
@@ -266,6 +293,7 @@ fn forward_pass(data: &mut [u8], pi: &[u8], phi: &[u8], logistic: &[u8], prime: 
     }
 }
 
+#[cfg(not(feature = "gf"))]
 fn inverse_pass(data: &mut [u8], pi: &[u8], phi: &[u8], logistic: &[u8], prime: u16) {
     for (b, &m) in data.iter_mut().zip(logistic.iter()) {
         *b ^= m;
@@ -280,6 +308,62 @@ fn inverse_pass(data: &mut [u8], pi: &[u8], phi: &[u8], logistic: &[u8], prime: 
     }
     for b in data.iter_mut() {
         *b = modular_inverse_map(*b, prime, 257);
+    }
+    for (b, &m) in data.iter_mut().zip(pi.iter()) {
+        *b ^= m;
+    }
+}
+
+#[cfg(all(test, feature = "gf"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gf_compress_decompress_roundtrip() {
+        let data = b"GF compression test";
+        let compressed = compress_data(data);
+        let decompressed = decompress_data(&compressed);
+        assert_eq!(decompressed, data);
+    }
+}
+
+#[cfg(feature = "gf")]
+fn forward_pass(data: &mut [u8], pi: &[u8], phi: &[u8], logistic: &[u8], prime: u16) {
+    for (b, &m) in data.iter_mut().zip(pi.iter()) {
+        *b ^= m;
+    }
+    for b in data.iter_mut() {
+        *b = gf_mul(*b, prime as u8);
+    }
+    for (b, &m) in data.iter_mut().zip(phi.iter()) {
+        *b ^= m;
+    }
+    if data.len() % 2 == 0 {
+        for chunk in data.chunks_exact_mut(2) {
+            chunk.swap(0, 1);
+        }
+    }
+    for (b, &m) in data.iter_mut().zip(logistic.iter()) {
+        *b ^= m;
+    }
+}
+
+#[cfg(feature = "gf")]
+fn inverse_pass(data: &mut [u8], pi: &[u8], phi: &[u8], logistic: &[u8], prime: u16) {
+    for (b, &m) in data.iter_mut().zip(logistic.iter()) {
+        *b ^= m;
+    }
+    if data.len() % 2 == 0 {
+        for chunk in data.chunks_exact_mut(2) {
+            chunk.swap(0, 1);
+        }
+    }
+    for (b, &m) in data.iter_mut().zip(phi.iter()) {
+        *b ^= m;
+    }
+    let inv = gf_inv(prime as u8);
+    for b in data.iter_mut() {
+        *b = gf_mul(*b, inv);
     }
     for (b, &m) in data.iter_mut().zip(pi.iter()) {
         *b ^= m;

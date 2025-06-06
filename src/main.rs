@@ -1,5 +1,7 @@
 mod constants;
 mod ratchet;
+#[cfg(feature = "gf")]
+mod gf;
 
 use ratchet::{compress_data, decompress_data, repair_data, verify_data};
 use std::env;
