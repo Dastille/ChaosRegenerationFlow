@@ -1,4 +1,6 @@
-use crate::constants::{generate_mask, LOGISTIC_SEED, PHI_SEED, PI_SEED};
+use crate::constants::{
+    generate_mask, logistic_mask, LOGISTIC_R, LOGISTIC_SEED, PHI_SEED, PI_SEED,
+};
 use crc32fast::Hasher;
 use std::convert::TryInto;
 
@@ -8,7 +10,7 @@ pub fn compress_data(input: &[u8]) -> Vec<u8> {
     let size = input.len();
     let pi_mask = generate_mask(PI_SEED, size);
     let phi_mask = generate_mask(PHI_SEED, size);
-    let logistic_mask = generate_mask(LOGISTIC_SEED, size);
+    let logistic_mask = logistic_mask(LOGISTIC_SEED, size, LOGISTIC_R);
 
     let mut output = input.to_vec();
 
@@ -118,7 +120,7 @@ pub fn decompress_data(input: &[u8]) -> Vec<u8> {
     let size = original_size as usize;
     let pi_mask = generate_mask(PI_SEED, size);
     let phi_mask = generate_mask(PHI_SEED, size);
-    let logistic_mask = generate_mask(LOGISTIC_SEED, size);
+    let logistic_mask = logistic_mask(LOGISTIC_SEED, size, LOGISTIC_R);
 
     let mut output = compressed_data.to_vec();
 
@@ -188,7 +190,7 @@ pub fn repair_data(input: &[u8]) -> (Vec<u8>, bool) {
 
     let pi_mask = generate_mask(PI_SEED, original_size);
     let phi_mask = generate_mask(PHI_SEED, original_size);
-    let logistic_mask = generate_mask(LOGISTIC_SEED, original_size);
+    let logistic_mask = logistic_mask(LOGISTIC_SEED, original_size, LOGISTIC_R);
 
     let mut output = padded;
 
