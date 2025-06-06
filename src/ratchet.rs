@@ -2,6 +2,12 @@ use crate::constants::{generate_mask, LOGISTIC_SEED, PHI_SEED, PI_SEED};
 use crc32fast::Hasher;
 use std::convert::TryInto;
 
+const CHUNK_SIZE: usize = 256 * 1024; // 256KB blocks
+const MICROZONE_SIZE: usize = 1024; // 1KB microzones
+const MAX_PASSES: usize = 3;
+const ENTROPY_THRESHOLD: f64 = 0.1; // bits per byte
+const PRIMES: [u16; 3] = [251, 241, 239];
+
 const MAGIC: &[u8; 4] = b"CRGN";
 
 pub fn compress_data(input: &[u8]) -> Vec<u8> {
@@ -12,38 +18,39 @@ pub fn compress_data(input: &[u8]) -> Vec<u8> {
 
     let mut output = input.to_vec();
 
-    // XOR with the π mask
-    output = output
-        .iter()
-        .zip(pi_mask.iter())
-        .map(|(&b, &m)| b ^ m)
-        .collect();
+    let mut offset = 0;
+    for chunk in output.chunks_mut(CHUNK_SIZE) {
+        let mut zone_offset = 0;
+        for micro in chunk.chunks_mut(MICROZONE_SIZE) {
+            let global = offset + zone_offset;
+            let pi_slice = &pi_mask[global..global + micro.len()];
+            let phi_slice = &phi_mask[global..global + micro.len()];
+            let logistic_slice = &logistic_mask[global..global + micro.len()];
 
-    output = output
-        .iter()
-        .map(|&b| ((b as u16 * 251) % 257) as u8)
-        .collect();
+            let mut passes = 0;
+            let mut prime_idx = 0;
+            let mut prev_entropy = shannon_entropy(micro);
+            loop {
+                forward_pass(
+                    micro,
+                    pi_slice,
+                    phi_slice,
+                    logistic_slice,
+                    PRIMES[prime_idx],
+                );
+                let new_entropy = shannon_entropy(micro);
+                passes += 1;
+                if prev_entropy - new_entropy >= ENTROPY_THRESHOLD || passes == MAX_PASSES {
+                    break;
+                }
+                prev_entropy = new_entropy;
+                prime_idx = (prime_idx + 1) % PRIMES.len();
+            }
 
-    // XOR with the φ mask
-    output = output
-        .iter()
-        .zip(phi_mask.iter())
-        .map(|(&b, &m)| b ^ m)
-        .collect();
-
-    if output.len() % 2 == 0 {
-        output = output
-            .chunks_exact(2)
-            .flat_map(|chunk| vec![chunk[1], chunk[0]])
-            .collect();
+            zone_offset += micro.len();
+        }
+        offset += chunk.len();
     }
-
-    // XOR with the logistic mask
-    output = output
-        .iter()
-        .zip(logistic_mask.iter())
-        .map(|(&b, &m)| b ^ m)
-        .collect();
 
     let mut hasher = Hasher::new();
     hasher.update(&output);
@@ -122,38 +129,30 @@ pub fn decompress_data(input: &[u8]) -> Vec<u8> {
 
     let mut output = compressed_data.to_vec();
 
-    // Reverse XOR with the logistic mask
-    output = output
-        .iter()
-        .zip(logistic_mask.iter())
-        .map(|(&b, &m)| b ^ m)
-        .collect();
+    let primes_rev = [PRIMES[2], PRIMES[1], PRIMES[0]];
 
-    if output.len() % 2 == 0 {
-        output = output
-            .chunks_exact(2)
-            .flat_map(|chunk| vec![chunk[1], chunk[0]])
-            .collect();
+    let mut offset = 0;
+    for chunk in output.chunks_mut(CHUNK_SIZE) {
+        let mut zone_offset = 0;
+        for micro in chunk.chunks_mut(MICROZONE_SIZE) {
+            let global = offset + zone_offset;
+            let pi_slice = &pi_mask[global..global + micro.len()];
+            let phi_slice = &phi_mask[global..global + micro.len()];
+            let logistic_slice = &logistic_mask[global..global + micro.len()];
+
+            for &prime in &primes_rev {
+                let before = micro.to_vec();
+                inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
+                let diff = shannon_entropy(micro) - shannon_entropy(&before);
+                if diff < ENTROPY_THRESHOLD {
+                    micro.copy_from_slice(&before);
+                }
+            }
+
+            zone_offset += micro.len();
+        }
+        offset += chunk.len();
     }
-
-    // Reverse XOR with the φ mask
-    output = output
-        .iter()
-        .zip(phi_mask.iter())
-        .map(|(&b, &m)| b ^ m)
-        .collect();
-
-    output = output
-        .iter()
-        .map(|&b| modular_inverse_map(b, 251, 257))
-        .collect();
-
-    // Reverse XOR with the π mask
-    output = output
-        .iter()
-        .zip(pi_mask.iter())
-        .map(|(&b, &m)| b ^ m)
-        .collect();
 
     output
 }
@@ -192,38 +191,30 @@ pub fn repair_data(input: &[u8]) -> (Vec<u8>, bool) {
 
     let mut output = padded;
 
-    // Reverse XOR with the logistic mask
-    output = output
-        .iter()
-        .zip(logistic_mask.iter())
-        .map(|(&b, &m)| b ^ m)
-        .collect();
+    let primes_rev = [PRIMES[2], PRIMES[1], PRIMES[0]];
 
-    if output.len() % 2 == 0 {
-        output = output
-            .chunks_exact(2)
-            .flat_map(|chunk| vec![chunk[1], chunk[0]])
-            .collect();
+    let mut offset = 0;
+    for chunk in output.chunks_mut(CHUNK_SIZE) {
+        let mut zone_offset = 0;
+        for micro in chunk.chunks_mut(MICROZONE_SIZE) {
+            let global = offset + zone_offset;
+            let pi_slice = &pi_mask[global..global + micro.len()];
+            let phi_slice = &phi_mask[global..global + micro.len()];
+            let logistic_slice = &logistic_mask[global..global + micro.len()];
+
+            for &prime in &primes_rev {
+                let before = micro.to_vec();
+                inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
+                let diff = shannon_entropy(micro) - shannon_entropy(&before);
+                if diff < ENTROPY_THRESHOLD {
+                    micro.copy_from_slice(&before);
+                }
+            }
+
+            zone_offset += micro.len();
+        }
+        offset += chunk.len();
     }
-
-    // Reverse XOR with the φ mask
-    output = output
-        .iter()
-        .zip(phi_mask.iter())
-        .map(|(&b, &m)| b ^ m)
-        .collect();
-
-    output = output
-        .iter()
-        .map(|&b| modular_inverse_map(b, 251, 257))
-        .collect();
-
-    // Reverse XOR with the π mask
-    output = output
-        .iter()
-        .zip(pi_mask.iter())
-        .map(|(&b, &m)| b ^ m)
-        .collect();
 
     (output, crc_ok)
 }
@@ -235,4 +226,60 @@ fn modular_inverse_map(value: u8, prime: u16, modulo: u16) -> u8 {
         }
     }
     0
+}
+
+fn shannon_entropy(data: &[u8]) -> f64 {
+    let mut counts = [0usize; 256];
+    for &b in data {
+        counts[b as usize] += 1;
+    }
+    let len = data.len() as f64;
+    let mut entropy = 0.0;
+    for &c in &counts {
+        if c > 0 {
+            let p = c as f64 / len;
+            entropy -= p * p.log2();
+        }
+    }
+    entropy
+}
+
+fn forward_pass(data: &mut [u8], pi: &[u8], phi: &[u8], logistic: &[u8], prime: u16) {
+    for (b, &m) in data.iter_mut().zip(pi.iter()) {
+        *b ^= m;
+    }
+    for b in data.iter_mut() {
+        *b = ((*b as u16 * prime) % 257) as u8;
+    }
+    for (b, &m) in data.iter_mut().zip(phi.iter()) {
+        *b ^= m;
+    }
+    if data.len() % 2 == 0 {
+        for chunk in data.chunks_exact_mut(2) {
+            chunk.swap(0, 1);
+        }
+    }
+    for (b, &m) in data.iter_mut().zip(logistic.iter()) {
+        *b ^= m;
+    }
+}
+
+fn inverse_pass(data: &mut [u8], pi: &[u8], phi: &[u8], logistic: &[u8], prime: u16) {
+    for (b, &m) in data.iter_mut().zip(logistic.iter()) {
+        *b ^= m;
+    }
+    if data.len() % 2 == 0 {
+        for chunk in data.chunks_exact_mut(2) {
+            chunk.swap(0, 1);
+        }
+    }
+    for (b, &m) in data.iter_mut().zip(phi.iter()) {
+        *b ^= m;
+    }
+    for b in data.iter_mut() {
+        *b = modular_inverse_map(*b, prime, 257);
+    }
+    for (b, &m) in data.iter_mut().zip(pi.iter()) {
+        *b ^= m;
+    }
 }
