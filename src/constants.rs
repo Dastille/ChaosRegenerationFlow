@@ -1,5 +1,5 @@
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 pub fn generate_mask(seed: u64, size: usize) -> Vec<u8> {
     let mut rng = StdRng::seed_from_u64(seed);

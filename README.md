@@ -28,5 +28,11 @@ cargo build --release
 
 # Decompress a file
 ./target/release/chaosregen decompress <compressed_file> <output_file>
+
+# Verify an `.sg1` file without decompressing
+./target/release/chaosregen verify <compressed_file>
+
+# Attempt to repair a corrupted `.sg1` file
+./target/release/chaosregen repair <compressed_file> <output_file>
 Maintained by **Ashlynn**
 Contact: dastille@protonmail.com
