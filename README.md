@@ -2,13 +2,17 @@
 
 **Pure lossless universal compression for encrypted and chaotic data with full network-grade safety.**
 
-ChaosRegen mechanically extracts entropy from random data using 
+ChaosRegen mechanically extracts entropy from random data using
 universal constants, modular mathematics, and reversible transforms.
 
 Now includes:
 - Magic file headers
 - Original file size tracking
 - CRC32 checksum verification
+
+Sigil extends ChaosRegen with a self-verifying `.sg1` format. See
+[SigilProtocol.md](SigilProtocol.md) for details on the protocol and how
+it derives from the ChaosRegen engine.
 
 ## License
 
@@ -24,9 +28,5 @@ cargo build --release
 
 # Decompress a file
 ./target/release/chaosregen decompress <compressed_file> <output_file>
-```
-
-## Maintainer
-
-Maintained by **Ashlynn**  
+Maintained by **Ashlynn**
 Contact: dastille@protonmail.com
