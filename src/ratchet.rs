@@ -1,4 +1,4 @@
-use crate::constants::{generate_mask, PI_SEED, PHI_SEED, LOGISTIC_SEED};
+use crate::constants::{generate_mask, LOGISTIC_SEED, PHI_SEED, PI_SEED};
 use crc32fast::Hasher;
 use std::convert::TryInto;
 
@@ -12,29 +12,37 @@ pub fn compress_data(input: &[u8]) -> Vec<u8> {
 
     let mut output = input.to_vec();
 
-    output = output.iter()
+    // XOR with the π mask
+    output = output
+        .iter()
         .zip(pi_mask.iter())
-        .map(|(&b, &m)| (b ^ m) >> 2)
+        .map(|(&b, &m)| b ^ m)
         .collect();
 
-    output = output.iter()
+    output = output
+        .iter()
         .map(|&b| ((b as u16 * 251) % 257) as u8)
         .collect();
 
-    output = output.iter()
+    // XOR with the φ mask
+    output = output
+        .iter()
         .zip(phi_mask.iter())
-        .map(|(&b, &m)| (b ^ m) >> 1)
+        .map(|(&b, &m)| b ^ m)
         .collect();
 
     if output.len() % 2 == 0 {
-        output = output.chunks_exact(2)
+        output = output
+            .chunks_exact(2)
             .flat_map(|chunk| vec![chunk[1], chunk[0]])
             .collect();
     }
 
-    output = output.iter()
+    // XOR with the logistic mask
+    output = output
+        .iter()
         .zip(logistic_mask.iter())
-        .map(|(&b, &m)| (b ^ m) >> 3)
+        .map(|(&b, &m)| b ^ m)
         .collect();
 
     let mut hasher = Hasher::new();
@@ -48,6 +56,38 @@ pub fn compress_data(input: &[u8]) -> Vec<u8> {
     final_output.extend_from_slice(&output);
 
     final_output
+}
+
+pub fn verify_data(input: &[u8]) -> Result<(), String> {
+    if input.len() < 16 {
+        return Err("Input too small to be valid ChaosRegen compressed file.".into());
+    }
+
+    let magic = &input[..4];
+    let original_size_bytes = &input[4..12];
+    let checksum_bytes = &input[12..16];
+    let compressed_data = &input[16..];
+
+    if magic != MAGIC {
+        return Err("Invalid ChaosRegen magic header".into());
+    }
+
+    let original_size = u64::from_le_bytes(original_size_bytes.try_into().unwrap());
+    let expected_crc32 = u32::from_le_bytes(checksum_bytes.try_into().unwrap());
+
+    if compressed_data.len() != original_size as usize {
+        return Err("Size encoded in header does not match data length".into());
+    }
+
+    let mut hasher = Hasher::new();
+    hasher.update(compressed_data);
+    let actual_crc32 = hasher.finalize();
+
+    if expected_crc32 != actual_crc32 {
+        return Err("CRC32 checksum mismatch".into());
+    }
+
+    Ok(())
 }
 
 pub fn decompress_data(input: &[u8]) -> Vec<u8> {
@@ -82,32 +122,110 @@ pub fn decompress_data(input: &[u8]) -> Vec<u8> {
 
     let mut output = compressed_data.to_vec();
 
-    output = output.iter()
+    // Reverse XOR with the logistic mask
+    output = output
+        .iter()
         .zip(logistic_mask.iter())
-        .map(|(&b, &m)| ((b << 3) ^ m))
+        .map(|(&b, &m)| b ^ m)
         .collect();
 
     if output.len() % 2 == 0 {
-        output = output.chunks_exact(2)
+        output = output
+            .chunks_exact(2)
             .flat_map(|chunk| vec![chunk[1], chunk[0]])
             .collect();
     }
 
-    output = output.iter()
+    // Reverse XOR with the φ mask
+    output = output
+        .iter()
         .zip(phi_mask.iter())
-        .map(|(&b, &m)| ((b << 1) ^ m))
+        .map(|(&b, &m)| b ^ m)
         .collect();
 
-    output = output.iter()
+    output = output
+        .iter()
         .map(|&b| modular_inverse_map(b, 251, 257))
         .collect();
 
-    output = output.iter()
+    // Reverse XOR with the π mask
+    output = output
+        .iter()
         .zip(pi_mask.iter())
-        .map(|(&b, &m)| ((b << 2) ^ m))
+        .map(|(&b, &m)| b ^ m)
         .collect();
 
     output
+}
+
+/// Attempt to recover the original data even if the `.sg1` file is
+/// truncated or fails CRC checks. Missing bytes are padded with zeroes
+/// before the chaotic reverse transforms are applied.
+pub fn repair_data(input: &[u8]) -> (Vec<u8>, bool) {
+    if input.len() < 16 {
+        panic!("Input too small to be valid ChaosRegen compressed file.");
+    }
+
+    let magic = &input[..4];
+    if magic != MAGIC {
+        panic!("Invalid ChaosRegen magic header. File may be corrupted or wrong format.");
+    }
+
+    let original_size = u64::from_le_bytes(input[4..12].try_into().unwrap()) as usize;
+    let checksum_bytes = &input[12..16];
+    let compressed_data = if input.len() > 16 { &input[16..] } else { &[] };
+
+    let expected_crc32 = u32::from_le_bytes(checksum_bytes.try_into().unwrap());
+    let mut hasher = Hasher::new();
+    hasher.update(compressed_data);
+    let actual_crc32 = hasher.finalize();
+    let crc_ok = expected_crc32 == actual_crc32 && compressed_data.len() == original_size;
+
+    // Pad missing bytes with zeros
+    let mut padded = vec![0u8; original_size];
+    let copy_len = compressed_data.len().min(original_size);
+    padded[..copy_len].copy_from_slice(&compressed_data[..copy_len]);
+
+    let pi_mask = generate_mask(PI_SEED, original_size);
+    let phi_mask = generate_mask(PHI_SEED, original_size);
+    let logistic_mask = generate_mask(LOGISTIC_SEED, original_size);
+
+    let mut output = padded;
+
+    // Reverse XOR with the logistic mask
+    output = output
+        .iter()
+        .zip(logistic_mask.iter())
+        .map(|(&b, &m)| b ^ m)
+        .collect();
+
+    if output.len() % 2 == 0 {
+        output = output
+            .chunks_exact(2)
+            .flat_map(|chunk| vec![chunk[1], chunk[0]])
+            .collect();
+    }
+
+    // Reverse XOR with the φ mask
+    output = output
+        .iter()
+        .zip(phi_mask.iter())
+        .map(|(&b, &m)| b ^ m)
+        .collect();
+
+    output = output
+        .iter()
+        .map(|&b| modular_inverse_map(b, 251, 257))
+        .collect();
+
+    // Reverse XOR with the π mask
+    output = output
+        .iter()
+        .zip(pi_mask.iter())
+        .map(|(&b, &m)| b ^ m)
+        .collect();
+
+    (output, crc_ok)
 }
 
 fn modular_inverse_map(value: u8, prime: u16, modulo: u16) -> u8 {
