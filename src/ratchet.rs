@@ -30,23 +30,24 @@ pub fn compress_data(input: &[u8]) -> Vec<u8> {
             let logistic_slice = &logistic_mask[global..global + micro.len()];
 
             let mut passes = 0;
-            let mut prime_idx = 0;
+            let mut used = [false; PRIMES.len()];
             let mut prev_entropy = shannon_entropy(micro);
-            loop {
-                forward_pass(
+            while passes < MAX_PASSES {
+                if let Some((idx, next_data, new_entropy)) = select_best_prime(
                     micro,
                     pi_slice,
                     phi_slice,
                     logistic_slice,
-                    PRIMES[prime_idx],
-                );
-                let new_entropy = shannon_entropy(micro);
-                passes += 1;
-                if prev_entropy - new_entropy >= ENTROPY_THRESHOLD || passes == MAX_PASSES {
+                    &used,
+                    prev_entropy,
+                ) {
+                    micro.copy_from_slice(&next_data);
+                    used[idx] = true;
+                    prev_entropy = new_entropy;
+                    passes += 1;
+                } else {
                     break;
                 }
-                prev_entropy = new_entropy;
-                prime_idx = (prime_idx + 1) % PRIMES.len();
             }
 
             zone_offset += micro.len();
@@ -131,8 +132,6 @@ pub fn decompress_data(input: &[u8]) -> Vec<u8> {
 
     let mut output = compressed_data.to_vec();
 
-    let primes_rev = [PRIMES[2], PRIMES[1], PRIMES[0]];
-
     let mut offset = 0;
     for chunk in output.chunks_mut(CHUNK_SIZE) {
         let mut zone_offset = 0;
@@ -142,12 +141,24 @@ pub fn decompress_data(input: &[u8]) -> Vec<u8> {
             let phi_slice = &phi_mask[global..global + micro.len()];
             let logistic_slice = &logistic_mask[global..global + micro.len()];
 
-            for &prime in &primes_rev {
-                let before = micro.to_vec();
-                inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
-                let diff = shannon_entropy(micro) - shannon_entropy(&before);
-                if diff < ENTROPY_THRESHOLD {
-                    micro.copy_from_slice(&before);
+            let mut used = [false; PRIMES.len()];
+            let mut passes = 0;
+            let mut prev_entropy = shannon_entropy(micro);
+            while passes < MAX_PASSES {
+                if let Some((idx, next_data)) = select_inverse_prime(
+                    micro,
+                    pi_slice,
+                    phi_slice,
+                    logistic_slice,
+                    &used,
+                    prev_entropy,
+                ) {
+                    micro.copy_from_slice(&next_data);
+                    used[idx] = true;
+                    prev_entropy = shannon_entropy(micro);
+                    passes += 1;
+                } else {
+                    break;
                 }
             }
 
@@ -193,8 +204,6 @@ pub fn repair_data(input: &[u8]) -> (Vec<u8>, bool) {
 
     let mut output = padded;
 
-    let primes_rev = [PRIMES[2], PRIMES[1], PRIMES[0]];
-
     let mut offset = 0;
     for chunk in output.chunks_mut(CHUNK_SIZE) {
         let mut zone_offset = 0;
@@ -204,12 +213,24 @@ pub fn repair_data(input: &[u8]) -> (Vec<u8>, bool) {
             let phi_slice = &phi_mask[global..global + micro.len()];
             let logistic_slice = &logistic_mask[global..global + micro.len()];
 
-            for &prime in &primes_rev {
-                let before = micro.to_vec();
-                inverse_pass(micro, pi_slice, phi_slice, logistic_slice, prime);
-                let diff = shannon_entropy(micro) - shannon_entropy(&before);
-                if diff < ENTROPY_THRESHOLD {
-                    micro.copy_from_slice(&before);
+            let mut used = [false; PRIMES.len()];
+            let mut passes = 0;
+            let mut prev_entropy = shannon_entropy(micro);
+            while passes < MAX_PASSES {
+                if let Some((idx, next_data)) = select_inverse_prime(
+                    micro,
+                    pi_slice,
+                    phi_slice,
+                    logistic_slice,
+                    &used,
+                    prev_entropy,
+                ) {
+                    micro.copy_from_slice(&next_data);
+                    used[idx] = true;
+                    prev_entropy = shannon_entropy(micro);
+                    passes += 1;
+                } else {
+                    break;
                 }
             }
 
@@ -284,4 +305,75 @@ fn inverse_pass(data: &mut [u8], pi: &[u8], phi: &[u8], logistic: &[u8], prime: 
     for (b, &m) in data.iter_mut().zip(pi.iter()) {
         *b ^= m;
     }
+}
+
+fn entropy_score(before: f64, after: f64) -> f64 {
+    before - after
+}
+
+fn select_best_prime(
+    data: &[u8],
+    pi: &[u8],
+    phi: &[u8],
+    logistic: &[u8],
+    used: &[bool; PRIMES.len()],
+    prev_entropy: f64,
+) -> Option<(usize, Vec<u8>, f64)> {
+    let mut best_score = 0.0;
+    let mut best_idx = None;
+    let mut best_data = Vec::new();
+    for (i, &prime) in PRIMES.iter().enumerate() {
+        if used[i] {
+            continue;
+        }
+        let mut tmp = data.to_vec();
+        forward_pass(&mut tmp, pi, phi, logistic, prime);
+        let entropy = shannon_entropy(&tmp);
+        let score = entropy_score(prev_entropy, entropy);
+        if score > best_score {
+            best_score = score;
+            best_idx = Some(i);
+            best_data = tmp;
+        }
+    }
+    if let Some(idx) = best_idx {
+        if best_score >= ENTROPY_THRESHOLD {
+            let ent = shannon_entropy(&best_data);
+            return Some((idx, best_data, ent));
+        }
+    }
+    None
+}
+
+fn select_inverse_prime(
+    data: &[u8],
+    pi: &[u8],
+    phi: &[u8],
+    logistic: &[u8],
+    used: &[bool; PRIMES.len()],
+    prev_entropy: f64,
+) -> Option<(usize, Vec<u8>)> {
+    let mut best_score = 0.0;
+    let mut best_idx = None;
+    let mut best_data = Vec::new();
+    for (i, &prime) in PRIMES.iter().enumerate() {
+        if used[i] {
+            continue;
+        }
+        let mut tmp = data.to_vec();
+        inverse_pass(&mut tmp, pi, phi, logistic, prime);
+        let entropy = shannon_entropy(&tmp);
+        let score = entropy_score(entropy, prev_entropy);
+        if score > best_score {
+            best_score = score;
+            best_idx = Some(i);
+            best_data = tmp;
+        }
+    }
+    if let Some(idx) = best_idx {
+        if best_score >= ENTROPY_THRESHOLD {
+            return Some((idx, best_data));
+        }
+    }
+    None
 }

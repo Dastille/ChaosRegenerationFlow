@@ -41,6 +41,7 @@ The ChaosRegen engine follows a modular pipeline:
     - Modular Mapping with rotating primes {251, 241, 239}
     - Matrix Shuffling (conditionally)
     - Recursive passes (up to three) while entropy continues to fall
+    - Prime choice adapts dynamically using an entropy-drop score
 
 Metadata needed for decompression is minimal and embedded at the head of the compressed file.
 
@@ -54,6 +55,14 @@ ChaosRegen was tested against 1MB files composed entirely of encrypted-grade ran
 - Modular mappings rotate primes \{251, 241, 239\} each pass
 - Matrix shuffle applied when zone size was even
 - Dynamic adaptive strategies based on local entropy decay
+
+### Adaptive Prime Selection
+
+Each microzone tracks entropy after every ratchet pass. The prime used in the
+next pass is chosen by scoring how much entropy dropped in the previous round.
+All unused primes are simulated and the one yielding the largest reduction
+becomes the next choice. Decompression mirrors this by selecting the inverse
+prime that maximizes entropy recovery.
 
 ---
 
@@ -89,7 +98,6 @@ ChaosRegen does not replace traditional compressors for structured data but exce
 Several expansion paths are planned:
 
 - Integration of Galois Field (GF(2^8)) modular compression techniques.
-- Smarter prime adaptation based on local entropy signatures.
 - GPU acceleration (CUDA/OpenCL) for real-time compression.
 - Formal entropy analysis proofs and academic peer review.
 
