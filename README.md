@@ -36,5 +36,6 @@ cargo build --release
 
 # Attempt to repair a corrupted `.sg1` file
 ./target/release/chaosregen repair <compressed_file> <output_file>
-Maintained by **Ashlynn**
+```
+Maintained by Ashlynn
 Contact: dastille@protonmail.com
